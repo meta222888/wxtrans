@@ -53,7 +53,7 @@ func newFooterBar(left *widget.Label, right *canvas.Text) fyne.CanvasObject {
 	return container.New(&fixedHeightLayout{height: footerHeight}, row)
 }
 
-func newFooterBar(left *widget.Label, right *canvas.Text) fyne.CanvasObject {
+type fixedHeightLayout struct {
 	height float32
 }
 
