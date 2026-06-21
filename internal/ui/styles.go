@@ -40,11 +40,10 @@ func fieldRow(cols int, fields ...fyne.CanvasObject) fyne.CanvasObject {
 	return container.NewGridWithColumns(cols, fields...)
 }
 
-// filterRow1：关键词占左侧剩余宽度，右侧并排起始/截止日期（对齐设计图第一行）
+// filterRow1：关键词 50% + 起止日期各 25%
 func filterRow1(keyword, dateFrom, dateTo fyne.CanvasObject) fyne.CanvasObject {
-	datePair := container.NewGridWithColumns(2, dateFrom, dateTo)
-	dateWrap := container.New(&fixedWidthLayout{width: 340}, datePair)
-	return container.NewBorder(nil, nil, nil, dateWrap, keyword)
+	dateHalf := container.NewGridWithColumns(2, dateFrom, dateTo)
+	return fieldRow(2, keyword, dateHalf)
 }
 
 func newFooterBar(left *widget.Label, right *canvas.Text) fyne.CanvasObject {
@@ -54,33 +53,7 @@ func newFooterBar(left *widget.Label, right *canvas.Text) fyne.CanvasObject {
 	return container.New(&fixedHeightLayout{height: footerHeight}, row)
 }
 
-type fixedWidthLayout struct {
-	width float32
-}
-
-func (l *fixedWidthLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
-	h := float32(0)
-	for _, o := range objects {
-		if ms := o.MinSize(); ms.Height > h {
-			h = ms.Height
-		}
-	}
-	return fyne.NewSize(l.width, h)
-}
-
-func (l *fixedWidthLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
-	w := l.width
-	if size.Width < w {
-		w = size.Width
-	}
-	for _, o := range objects {
-		ms := o.MinSize()
-		o.Resize(fyne.NewSize(w, max(ms.Height, size.Height)))
-		o.Move(fyne.NewPos(0, 0))
-	}
-}
-
-type fixedHeightLayout struct {
+func newFooterBar(left *widget.Label, right *canvas.Text) fyne.CanvasObject {
 	height float32
 }
 

@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
+	"time"
 
 	"wxtrans/internal/database"
 	"wxtrans/internal/models"
@@ -13,7 +15,8 @@ import (
 
 var tableHeaders = []string{"时间", "类型", "对方", "收支", "金额", "支付方式", "状态", "交易单号"}
 
-var tableColWidths = []float32{132, 88, 148, 76, 88, 118, 96, 148}
+// 列宽比例，合计 1.0
+var tableColRatios = []float32{0.11, 0.08, 0.14, 0.06, 0.08, 0.11, 0.09, 0.33}
 
 func newTableCellLabel() *widget.Label {
 	l := widget.NewLabel("")
@@ -28,10 +31,53 @@ func newTableHeaderLabel(text string) *widget.Label {
 	return l
 }
 
-func applyTableColumnWidths(table *widget.Table) {
-	for i, w := range tableColWidths {
-		table.SetColumnWidth(i, w)
+func applyTableColumnWidths(table *widget.Table, totalWidth float32) {
+	if totalWidth <= 0 {
+		return
 	}
+	for i, ratio := range tableColRatios {
+		table.SetColumnWidth(i, totalWidth*ratio)
+	}
+}
+
+func newFullWidthTablePanel(header, body *widget.Table) fyne.CanvasObject {
+	scroll := container.NewScroll(body)
+	return container.New(&fullWidthTableLayout{
+		header: header,
+		body:   body,
+		scroll: scroll,
+	}, header, scroll)
+}
+
+type fullWidthTableLayout struct {
+	header *widget.Table
+	body   *widget.Table
+	scroll *container.Scroll
+}
+
+func (l *fullWidthTableLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	hh := l.header.MinSize().Height
+	sh := l.scroll.MinSize().Height
+	sw := float32(0)
+	for _, o := range objects {
+		if ms := o.MinSize(); ms.Width > sw {
+			sw = ms.Width
+		}
+	}
+	return fyne.NewSize(sw, hh+sh)
+}
+
+func (l *fullWidthTableLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	w := size.Width
+	applyTableColumnWidths(l.header, w)
+	applyTableColumnWidths(l.body, w)
+
+	hh := l.header.MinSize().Height
+	l.header.Move(fyne.NewPos(0, 0))
+	l.header.Resize(fyne.NewSize(w, hh))
+
+	l.scroll.Move(fyne.NewPos(0, hh))
+	l.scroll.Resize(fyne.NewSize(w, size.Height-hh))
 }
 
 func applyTransactionCell(label *widget.Label, col int, tx models.Transaction) {
@@ -124,8 +170,30 @@ func formatStatus(status string) string {
 	return "● " + status
 }
 
+func newOptionalDateEntry() *widget.DateEntry {
+	e := widget.NewDateEntry()
+	_ = e.MinSize()
+	e.Validator = optionalDateValidator
+	return e
+}
+
+func optionalDateValidator(in string) error {
+	if strings.TrimSpace(in) == "" {
+		return nil
+	}
+	for _, layout := range []string{"2006/01/02", "2006-01-02", "2006/1/2", "2006-1-2"} {
+		if _, err := time.Parse(layout, in); err == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("日期格式无效")
+}
+
 func summaryTableSection(title string, header, table *widget.Table) fyne.CanvasObject {
 	titleLabel := widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	top := container.NewVBox(titleLabel, header)
-	return container.NewBorder(top, nil, nil, nil, container.NewScroll(table))
+	return container.NewBorder(
+		container.NewVBox(titleLabel, header),
+		nil, nil, nil,
+		container.NewScroll(table),
+	)
 }

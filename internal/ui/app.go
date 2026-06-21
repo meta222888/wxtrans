@@ -57,9 +57,9 @@ func (a *App) Build() fyne.CanvasObject {
 	a.keywordEntry = widget.NewEntry()
 	a.keywordEntry.SetPlaceHolder("对方、商品、单号、备注…")
 
-	a.dateFromEntry = widget.NewDateEntry()
+	a.dateFromEntry = newOptionalDateEntry()
 	a.dateFromEntry.SetPlaceHolder("yyyy/mm/dd")
-	a.dateToEntry = widget.NewDateEntry()
+	a.dateToEntry = newOptionalDateEntry()
 	a.dateToEntry.SetPlaceHolder("yyyy/mm/dd")
 
 	a.amountMinEntry = widget.NewEntry()
@@ -131,8 +131,6 @@ func (a *App) Build() fyne.CanvasObject {
 			applyTransactionCell(label, id.Col, a.tableData[id.Row])
 		},
 	)
-	applyTableColumnWidths(a.table)
-
 	headerTable := widget.NewTable(
 		func() (int, int) { return 1, len(tableHeaders) },
 		func() fyne.CanvasObject { return newTableHeaderLabel("") },
@@ -142,12 +140,9 @@ func (a *App) Build() fyne.CanvasObject {
 			}
 		},
 	)
-	applyTableColumnWidths(headerTable)
 
-	tableCard := newCard(container.NewBorder(
-		headerTable, nil, nil, nil,
-		container.NewScroll(a.table),
-	))
+	tablePanel := newFullWidthTablePanel(headerTable, a.table)
+	tableCard := newCard(tablePanel)
 
 	footerBar := newFooterBar(a.recordCountLabel, a.dbPathText)
 
