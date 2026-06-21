@@ -1,3 +1,6 @@
 *.exe
+*.exe~
 ledger.db
 *.db
+*.xlsx
+*.xls

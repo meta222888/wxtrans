@@ -23,9 +23,15 @@ func main() {
 
 	application := app.NewWithID("com.wxtrans.ledger")
 	window := application.NewWindow("微信小账本")
-	window.Resize(fyne.NewSize(980, 640))
+	window.Resize(fyne.NewSize(380, 180))
 
-	ledger := ui.NewApp(window, db)
-	window.SetContent(ledger.Build())
+	ui.ShowLogin(window, db, func() {
+		window.SetTitle("微信小账本")
+		window.Resize(fyne.NewSize(980, 640))
+		window.CenterOnScreen()
+		ledger := ui.NewApp(window, db)
+		window.SetContent(ledger.Build())
+	})
+
 	window.ShowAndRun()
 }

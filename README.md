@@ -27,8 +27,16 @@ go build -ldflags="-s -w -H windowsgui" -o wxtrans.exe .
 ## 使用
 
 1. 微信 → 我 → 服务 → 钱包 → 账单 → 右上角 … → 导出账单 → 选 Excel
-2. 运行 `wxtrans.exe`，点击「导入 Excel」
-3. 在「流水」页搜索筛选，在「汇总」页查看统计
+2. 运行程序（双击 `run.bat` 或 `wxtrans.exe`），输入密码登录
+3. 初始密码：`eee333`，登录后可在工具栏点击「改密码」修改
+4. 点击「导入 Excel」，在「流水」页搜索筛选，在「汇总」页查看统计
+
+## 快捷脚本
+
+| 脚本 | 说明 |
+|------|------|
+| `run.bat` | 运行程序（优先 `wxtrans.exe`，否则 `go run .`） |
+| `build.bat` | 打包生成 `wxtrans.exe` |
 
 ## 命令行
 

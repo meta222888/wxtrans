@@ -69,6 +69,7 @@ func (a *App) Build() fyne.CanvasObject {
 	})
 	clearBtn := widget.NewButton("清空条件", func() { a.clearFilters() })
 	importBtn := widget.NewButtonWithIcon("导入 Excel", theme.DocumentCreateIcon(), func() { a.importExcel() })
+	passwordBtn := widget.NewButtonWithIcon("改密码", theme.LoginIcon(), func() { a.showChangePasswordDialog() })
 	prevBtn := widget.NewButtonWithIcon("", theme.NavigateBackIcon(), func() { a.prevPage() })
 	nextBtn := widget.NewButtonWithIcon("", theme.NavigateNextIcon(), func() { a.nextPage() })
 
@@ -86,7 +87,7 @@ func (a *App) Build() fyne.CanvasObject {
 			widget.NewFormItem("收支", a.directionSelect),
 			widget.NewFormItem("类型", a.typeSelect),
 		),
-		container.NewHBox(searchBtn, clearBtn, importBtn),
+		container.NewHBox(searchBtn, clearBtn, importBtn, passwordBtn),
 		container.NewHBox(prevBtn, a.pageLabel, nextBtn),
 	)
 
