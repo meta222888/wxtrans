@@ -214,13 +214,12 @@ func (a *App) Build() fyne.CanvasObject {
 	monthHeader.SetColumnWidth(2, 100)
 	monthHeader.SetColumnWidth(3, 100)
 
-	summaryTab := container.NewVBox(
-		a.summaryLabel,
-		widget.NewLabelWithStyle("按类型汇总", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		container.NewBorder(typeHeader, nil, nil, nil, container.NewScroll(a.typeTable)),
-		widget.NewLabelWithStyle("按月汇总", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		container.NewBorder(monthHeader, nil, nil, nil, container.NewScroll(a.monthTable)),
-	)
+	typeSection := summaryTableSection("按类型汇总", typeHeader, a.typeTable)
+	monthSection := summaryTableSection("按月汇总", monthHeader, a.monthTable)
+	summarySplit := container.NewVSplit(typeSection, monthSection)
+	summarySplit.SetOffset(0.5)
+
+	summaryTab := container.NewBorder(a.summaryLabel, nil, nil, nil, summarySplit)
 
 	tabs := container.NewAppTabs(
 		container.NewTabItem("流水", listTab),

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -25,4 +26,10 @@ func applyTableColumnWidths(table *widget.Table) {
 	for i, w := range tableColWidths {
 		table.SetColumnWidth(i, w)
 	}
+}
+
+func summaryTableSection(title string, header, table *widget.Table) fyne.CanvasObject {
+	titleLabel := widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	top := container.NewVBox(titleLabel, header)
+	return container.NewBorder(top, nil, nil, nil, container.NewScroll(table))
 }
