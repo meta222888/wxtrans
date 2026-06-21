@@ -21,7 +21,7 @@ go build -ldflags="-s -w -H windowsgui" -o wxtrans.exe .
 或使用脚本：
 
 ```powershell
-.\build.ps1
+.\build.bat
 ```
 
 ## 使用
