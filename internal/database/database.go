@@ -139,6 +139,14 @@ func (db *DB) buildWhere(filter models.SearchFilter) (string, []any) {
 		parts = append(parts, `trans_type = ?`)
 		args = append(args, t)
 	}
+	if filter.AmountMin > 0 {
+		parts = append(parts, `amount >= ?`)
+		args = append(args, filter.AmountMin)
+	}
+	if filter.AmountMax > 0 {
+		parts = append(parts, `amount <= ?`)
+		args = append(args, filter.AmountMax)
+	}
 
 	where := ""
 	if len(parts) > 0 {

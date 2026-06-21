@@ -24,6 +24,8 @@ type SearchFilter struct {
 	DateTo    *time.Time
 	Direction string
 	TransType string
+	AmountMin float64 // 0 表示不限
+	AmountMax float64 // 0 表示不限
 	Limit     int
 	Offset    int
 }

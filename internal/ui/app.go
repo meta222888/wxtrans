@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"wxtrans/internal/database"
+	"wxtrans/internal/filedialog"
 	"wxtrans/internal/importer"
 	"wxtrans/internal/models"
 
@@ -20,23 +21,25 @@ type App struct {
 	window fyne.Window
 	db     *database.DB
 
-	keywordEntry   *widget.Entry
-	dateFromEntry  *widget.Entry
-	dateToEntry    *widget.Entry
+	keywordEntry    *widget.Entry
+	dateFromEntry   *widget.Entry
+	dateToEntry     *widget.Entry
+	amountMinEntry  *widget.Entry
+	amountMaxEntry  *widget.Entry
 	directionSelect *widget.Select
-	typeSelect     *widget.Select
-	statusLabel    *widget.Label
-	summaryLabel   *widget.Label
-	table          *widget.Table
-	tableData      []models.Transaction
-	totalCount     int
-	pageSize       int
-	pageOffset     int
-	pageLabel      *widget.Label
-	typeTable      *widget.Table
-	typeData       []models.TypeSummary
-	monthTable     *widget.Table
-	monthData      []models.MonthSummary
+	typeSelect      *widget.Select
+	statusLabel     *widget.Label
+	summaryLabel    *widget.Label
+	table           *widget.Table
+	tableData       []models.Transaction
+	totalCount      int
+	pageSize        int
+	pageOffset      int
+	pageLabel       *widget.Label
+	typeTable       *widget.Table
+	typeData        []models.TypeSummary
+	monthTable      *widget.Table
+	monthData       []models.MonthSummary
 }
 
 func NewApp(window fyne.Window, db *database.DB) *App {
@@ -55,6 +58,11 @@ func (a *App) Build() fyne.CanvasObject {
 	a.dateFromEntry.SetPlaceHolder("起始 yyyy-mm-dd")
 	a.dateToEntry = widget.NewEntry()
 	a.dateToEntry.SetPlaceHolder("截止 yyyy-mm-dd")
+
+	a.amountMinEntry = widget.NewEntry()
+	a.amountMinEntry.SetPlaceHolder("最低金额，0=不限")
+	a.amountMaxEntry = widget.NewEntry()
+	a.amountMaxEntry.SetPlaceHolder("最高金额，0=不限")
 
 	a.directionSelect = widget.NewSelect([]string{"全部", "收入", "支出"}, func(string) {})
 	a.directionSelect.SetSelected("全部")
@@ -77,25 +85,22 @@ func (a *App) Build() fyne.CanvasObject {
 	a.statusLabel = widget.NewLabel("就绪")
 	a.summaryLabel = widget.NewLabel("汇总加载中…")
 
-	filterBar := container.NewGridWithColumns(4,
+	filterBar := container.NewVBox(
 		widget.NewForm(
 			widget.NewFormItem("关键词", a.keywordEntry),
 			widget.NewFormItem("起始日期", a.dateFromEntry),
 			widget.NewFormItem("截止日期", a.dateToEntry),
-		),
-		widget.NewForm(
+			widget.NewFormItem("最低金额", a.amountMinEntry),
+			widget.NewFormItem("最高金额", a.amountMaxEntry),
 			widget.NewFormItem("收支", a.directionSelect),
 			widget.NewFormItem("类型", a.typeSelect),
 		),
-		container.NewHBox(searchBtn, clearBtn, importBtn, passwordBtn),
-		container.NewHBox(prevBtn, a.pageLabel, nextBtn),
+		container.NewHBox(searchBtn, clearBtn, importBtn, passwordBtn, prevBtn, a.pageLabel, nextBtn),
 	)
 
 	a.table = widget.NewTable(
-		func() (int, int) { return len(a.tableData), 8 },
-		func() fyne.CanvasObject {
-			return widget.NewLabel("")
-		},
+		func() (int, int) { return len(a.tableData), len(tableHeaders) },
+		func() fyne.CanvasObject { return newTableCellLabel() },
 		func(id widget.TableCellID, obj fyne.CanvasObject) {
 			label := obj.(*widget.Label)
 			if id.Row >= len(a.tableData) {
@@ -116,36 +121,29 @@ func (a *App) Build() fyne.CanvasObject {
 			label.SetText(cols[id.Col])
 		},
 	)
-	a.table.SetColumnWidth(0, 130)
-	a.table.SetColumnWidth(1, 90)
-	a.table.SetColumnWidth(2, 120)
-	a.table.SetColumnWidth(3, 50)
-	a.table.SetColumnWidth(4, 80)
-	a.table.SetColumnWidth(5, 130)
-	a.table.SetColumnWidth(6, 80)
-	a.table.SetColumnWidth(7, 180)
+	applyTableColumnWidths(a.table)
 
-	header := container.NewGridWithColumns(8,
-		widget.NewLabelWithStyle("时间", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("类型", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("对方", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("收支", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("金额", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("支付方式", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("状态", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("交易单号", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+	headerTable := widget.NewTable(
+		func() (int, int) { return 1, len(tableHeaders) },
+		func() fyne.CanvasObject { return newTableHeaderLabel("") },
+		func(id widget.TableCellID, obj fyne.CanvasObject) {
+			if id.Col < len(tableHeaders) {
+				obj.(*widget.Label).SetText(tableHeaders[id.Col])
+			}
+		},
 	)
+	applyTableColumnWidths(headerTable)
 
 	listTab := container.NewBorder(
 		filterBar,
 		a.statusLabel,
 		nil, nil,
-		container.NewBorder(header, nil, nil, nil, a.table),
+		container.NewBorder(headerTable, nil, nil, nil, container.NewScroll(a.table)),
 	)
 
 	a.typeTable = widget.NewTable(
 		func() (int, int) { return len(a.typeData), 4 },
-		func() fyne.CanvasObject { return widget.NewLabel("") },
+		func() fyne.CanvasObject { return newTableCellLabel() },
 		func(id widget.TableCellID, obj fyne.CanvasObject) {
 			label := obj.(*widget.Label)
 			if id.Row >= len(a.typeData) {
@@ -157,14 +155,29 @@ func (a *App) Build() fyne.CanvasObject {
 			label.SetText(cols[id.Col])
 		},
 	)
-	a.typeTable.SetColumnWidth(0, 140)
+	a.typeTable.SetColumnWidth(0, 160)
 	a.typeTable.SetColumnWidth(1, 60)
 	a.typeTable.SetColumnWidth(2, 60)
 	a.typeTable.SetColumnWidth(3, 100)
 
+	typeHeader := widget.NewTable(
+		func() (int, int) { return 1, 4 },
+		func() fyne.CanvasObject { return newTableHeaderLabel("") },
+		func(id widget.TableCellID, obj fyne.CanvasObject) {
+			headers := []string{"类型", "收支", "笔数", "金额"}
+			if id.Col < len(headers) {
+				obj.(*widget.Label).SetText(headers[id.Col])
+			}
+		},
+	)
+	typeHeader.SetColumnWidth(0, 160)
+	typeHeader.SetColumnWidth(1, 60)
+	typeHeader.SetColumnWidth(2, 60)
+	typeHeader.SetColumnWidth(3, 100)
+
 	a.monthTable = widget.NewTable(
 		func() (int, int) { return len(a.monthData), 4 },
-		func() fyne.CanvasObject { return widget.NewLabel("") },
+		func() fyne.CanvasObject { return newTableCellLabel() },
 		func(id widget.TableCellID, obj fyne.CanvasObject) {
 			label := obj.(*widget.Label)
 			if id.Row >= len(a.monthData) {
@@ -186,24 +199,27 @@ func (a *App) Build() fyne.CanvasObject {
 	a.monthTable.SetColumnWidth(2, 100)
 	a.monthTable.SetColumnWidth(3, 100)
 
+	monthHeader := widget.NewTable(
+		func() (int, int) { return 1, 4 },
+		func() fyne.CanvasObject { return newTableHeaderLabel("") },
+		func(id widget.TableCellID, obj fyne.CanvasObject) {
+			headers := []string{"月份", "收入", "支出", "结余"}
+			if id.Col < len(headers) {
+				obj.(*widget.Label).SetText(headers[id.Col])
+			}
+		},
+	)
+	monthHeader.SetColumnWidth(0, 80)
+	monthHeader.SetColumnWidth(1, 100)
+	monthHeader.SetColumnWidth(2, 100)
+	monthHeader.SetColumnWidth(3, 100)
+
 	summaryTab := container.NewVBox(
 		a.summaryLabel,
 		widget.NewLabelWithStyle("按类型汇总", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		container.NewGridWithColumns(4,
-			widget.NewLabelWithStyle("类型", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("收支", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("笔数", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("金额", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		),
-		container.NewMax(a.typeTable),
+		container.NewBorder(typeHeader, nil, nil, nil, container.NewScroll(a.typeTable)),
 		widget.NewLabelWithStyle("按月汇总", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		container.NewGridWithColumns(4,
-			widget.NewLabelWithStyle("月份", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("收入", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("支出", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("结余", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		),
-		container.NewMax(a.monthTable),
+		container.NewBorder(monthHeader, nil, nil, nil, container.NewScroll(a.monthTable)),
 	)
 
 	tabs := container.NewAppTabs(
@@ -239,7 +255,21 @@ func (a *App) currentFilter() models.SearchFilter {
 			filter.DateTo = &t
 		}
 	}
+	filter.AmountMin = parseAmountFilter(a.amountMinEntry.Text)
+	filter.AmountMax = parseAmountFilter(a.amountMaxEntry.Text)
 	return filter
+}
+
+func parseAmountFilter(raw string) float64 {
+	raw = stringsTrim(raw)
+	if raw == "" || raw == "0" {
+		return 0
+	}
+	v, err := strconv.ParseFloat(raw, 64)
+	if err != nil || v <= 0 {
+		return 0
+	}
+	return v
 }
 
 func (a *App) refreshList() {
@@ -310,6 +340,8 @@ func (a *App) clearFilters() {
 	a.keywordEntry.SetText("")
 	a.dateFromEntry.SetText("")
 	a.dateToEntry.SetText("")
+	a.amountMinEntry.SetText("")
+	a.amountMaxEntry.SetText("")
 	a.directionSelect.SetSelected("全部")
 	a.typeSelect.SetSelected("全部类型")
 	a.pageOffset = 0
@@ -332,23 +364,28 @@ func (a *App) nextPage() {
 }
 
 func (a *App) importExcel() {
-	dialog.ShowFileOpen(func(reader fyne.URIReadCloser, err error) {
-		if err != nil || reader == nil {
-			return
-		}
-		defer reader.Close()
-		path := reader.URI().Path()
-		result, err := importer.ImportWeChatExcel(a.db, path)
-		if err != nil {
-			dialog.ShowError(err, a.window)
-			return
-		}
-		a.pageOffset = 0
-		a.refreshTypeOptions()
-		a.refreshList()
-		a.refreshSummary()
-		dialog.ShowInformation("导入结果", result.Message, a.window)
-	}, a.window)
+	go func() {
+		path, err := filedialog.OpenExcel()
+		fyne.Do(func() {
+			if err != nil {
+				dialog.ShowError(err, a.window)
+				return
+			}
+			if path == "" {
+				return
+			}
+			result, err := importer.ImportWeChatExcel(a.db, path)
+			if err != nil {
+				dialog.ShowError(err, a.window)
+				return
+			}
+			a.pageOffset = 0
+			a.refreshTypeOptions()
+			a.refreshList()
+			a.refreshSummary()
+			dialog.ShowInformation("导入结果", result.Message, a.window)
+		})
+	}()
 }
 
 func stringsTrim(s string) string {
