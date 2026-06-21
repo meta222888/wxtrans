@@ -33,11 +33,10 @@ func ShowLogin(window fyne.Window, db *database.DB, onSuccess func()) {
 		widget.NewLabel("请输入密码以打开账本"),
 		passwordEntry,
 		loginBtn,
-		widget.NewLabel("初始密码: eee333（可在主界面修改）"),
 	)
 
 	window.SetContent(container.NewPadded(content))
-	window.Resize(fyne.NewSize(380, 180))
+	window.Resize(fyne.NewSize(380, 150))
 	window.CenterOnScreen()
 	passwordEntry.FocusGained()
 }

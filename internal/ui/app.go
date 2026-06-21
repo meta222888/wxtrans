@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"strconv"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"wxtrans/internal/models"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
@@ -29,7 +31,7 @@ type App struct {
 	directionSelect *widget.Select
 	typeSelect      *widget.Select
 	recordCountLabel *widget.Label
-	dbPathLabel     *widget.Label
+	dbPathText       *canvas.Text
 	summaryLabel    *widget.Label
 	table           *widget.Table
 	tableData       []models.Transaction
@@ -86,8 +88,8 @@ func (a *App) Build() fyne.CanvasObject {
 
 	a.pageLabel = widget.NewLabel("第 1 / 1 页")
 	a.recordCountLabel = widget.NewLabel("共 0 条记录")
-	a.dbPathLabel = widget.NewLabel("")
-	a.dbPathLabel.Importance = widget.LowImportance
+	a.dbPathText = canvas.NewText("", color.NRGBA{R: 55, G: 65, B: 81, A: 255})
+	a.dbPathText.TextSize = theme.TextSize()
 	a.summaryLabel = widget.NewLabel("汇总加载中…")
 
 	keywordField := formField("关键词", container.NewBorder(
@@ -98,14 +100,14 @@ func (a *App) Build() fyne.CanvasObject {
 	))
 
 	filterCard := newCard(container.NewVBox(
-		keywordField,
-		fieldRow(4,
+		filterRow1(
+			keywordField,
 			formField("起始日期", a.dateFromEntry),
 			formField("截止日期", a.dateToEntry),
+		),
+		fieldRow(4,
 			formField("最低金额", a.amountMinEntry),
 			formField("最高金额", a.amountMaxEntry),
-		),
-		fieldRow(2,
 			formField("收支", a.directionSelect),
 			formField("类型", a.typeSelect),
 		),
@@ -147,16 +149,11 @@ func (a *App) Build() fyne.CanvasObject {
 		container.NewScroll(a.table),
 	))
 
-	footerBar := container.NewBorder(
-		nil, nil,
-		a.recordCountLabel,
-		a.dbPathLabel,
-		nil,
-	)
+	footerBar := newFooterBar(a.recordCountLabel, a.dbPathText)
 
 	listTab := container.NewBorder(
 		container.NewPadded(filterCard),
-		container.NewPadded(footerBar),
+		footerBar,
 		nil, nil,
 		tableCard,
 	)
@@ -313,7 +310,8 @@ func (a *App) refreshList() {
 	} else {
 		a.recordCountLabel.SetText(fmt.Sprintf("共 %d 条记录，当前显示 %d-%d 条", total, a.pageOffset+1, end))
 	}
-	a.dbPathLabel.SetText("数据库: " + a.db.Path())
+	a.dbPathText.Text = "数据库: " + a.db.Path()
+	a.dbPathText.Refresh()
 }
 
 func (a *App) refreshSummary() {
