@@ -188,12 +188,3 @@ func optionalDateValidator(in string) error {
 	}
 	return fmt.Errorf("日期格式无效")
 }
-
-func summaryTableSection(title string, header, table *widget.Table) fyne.CanvasObject {
-	titleLabel := widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	return container.NewBorder(
-		container.NewVBox(titleLabel, header),
-		nil, nil, nil,
-		container.NewScroll(table),
-	)
-}

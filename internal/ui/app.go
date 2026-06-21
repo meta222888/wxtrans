@@ -32,7 +32,7 @@ type App struct {
 	typeSelect      *widget.Select
 	recordCountLabel *widget.Label
 	dbPathText       *canvas.Text
-	summaryLabel    *widget.Label
+	summaryCards     *summaryCards
 	table           *widget.Table
 	tableData       []models.Transaction
 	totalCount      int
@@ -90,7 +90,9 @@ func (a *App) Build() fyne.CanvasObject {
 	a.recordCountLabel = widget.NewLabel("共 0 条记录")
 	a.dbPathText = canvas.NewText("", color.NRGBA{R: 55, G: 65, B: 81, A: 255})
 	a.dbPathText.TextSize = theme.TextSize()
-	a.summaryLabel = widget.NewLabel("汇总加载中…")
+
+	cards, statCardsRow := newSummaryCards()
+	a.summaryCards = cards
 
 	keywordField := formField("关键词", container.NewBorder(
 		nil, nil,
@@ -228,11 +230,11 @@ func (a *App) Build() fyne.CanvasObject {
 
 	typeSection := summaryTableSection("按类型汇总", typeHeader, a.typeTable)
 	monthSection := summaryTableSection("按月汇总", monthHeader, a.monthTable)
-	summarySplit := container.NewVSplit(typeSection, monthSection)
+	summarySplit := container.NewHSplit(typeSection, monthSection)
 	summarySplit.SetOffset(0.5)
 
 	summaryTab := container.NewBorder(
-		newCard(a.summaryLabel),
+		container.NewPadded(statCardsRow),
 		nil, nil, nil,
 		summarySplit,
 	)
@@ -319,13 +321,7 @@ func (a *App) refreshSummary() {
 		dialog.ShowError(err, a.window)
 		return
 	}
-	a.summaryLabel.SetText(fmt.Sprintf(
-		"总笔数: %d  |  收入: %d 笔 / ¥%s  |  支出: %d 笔 / ¥%s  |  结余: ¥%s",
-		summary.TotalCount,
-		summary.IncomeCount, database.FormatMoney(summary.IncomeAmount),
-		summary.ExpenseCount, database.FormatMoney(summary.ExpenseAmount),
-		database.FormatMoney(summary.NetAmount),
-	))
+	a.summaryCards.Update(summary)
 
 	typeData, err := a.db.SummaryByType(filter)
 	if err != nil {
