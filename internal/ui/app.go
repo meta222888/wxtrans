@@ -22,13 +22,14 @@ type App struct {
 	db     *database.DB
 
 	keywordEntry    *widget.Entry
-	dateFromEntry   *widget.Entry
-	dateToEntry     *widget.Entry
+	dateFromEntry   *widget.DateEntry
+	dateToEntry     *widget.DateEntry
 	amountMinEntry  *widget.Entry
 	amountMaxEntry  *widget.Entry
 	directionSelect *widget.Select
 	typeSelect      *widget.Select
-	statusLabel     *widget.Label
+	recordCountLabel *widget.Label
+	dbPathLabel     *widget.Label
 	summaryLabel    *widget.Label
 	table           *widget.Table
 	tableData       []models.Transaction
@@ -52,17 +53,17 @@ func NewApp(window fyne.Window, db *database.DB) *App {
 
 func (a *App) Build() fyne.CanvasObject {
 	a.keywordEntry = widget.NewEntry()
-	a.keywordEntry.SetPlaceHolder("关键词：对方、商品、单号、备注…")
+	a.keywordEntry.SetPlaceHolder("对方、商品、单号、备注…")
 
-	a.dateFromEntry = widget.NewEntry()
-	a.dateFromEntry.SetPlaceHolder("起始 yyyy-mm-dd")
-	a.dateToEntry = widget.NewEntry()
-	a.dateToEntry.SetPlaceHolder("截止 yyyy-mm-dd")
+	a.dateFromEntry = widget.NewDateEntry()
+	a.dateFromEntry.SetPlaceHolder("yyyy/mm/dd")
+	a.dateToEntry = widget.NewDateEntry()
+	a.dateToEntry.SetPlaceHolder("yyyy/mm/dd")
 
 	a.amountMinEntry = widget.NewEntry()
-	a.amountMinEntry.SetPlaceHolder("最低金额，0=不限")
+	a.amountMinEntry.SetPlaceHolder("0 = 不限")
 	a.amountMaxEntry = widget.NewEntry()
-	a.amountMaxEntry.SetPlaceHolder("最高金额，0=不限")
+	a.amountMaxEntry.SetPlaceHolder("0 = 不限")
 
 	a.directionSelect = widget.NewSelect([]string{"全部", "收入", "支出"}, func(string) {})
 	a.directionSelect.SetSelected("全部")
@@ -75,28 +76,46 @@ func (a *App) Build() fyne.CanvasObject {
 		a.refreshList()
 		a.refreshSummary()
 	})
-	clearBtn := widget.NewButton("清空条件", func() { a.clearFilters() })
+	searchBtn.Importance = widget.HighImportance
+
+	clearBtn := widget.NewButtonWithIcon("清空条件", theme.ContentClearIcon(), func() { a.clearFilters() })
 	importBtn := widget.NewButtonWithIcon("导入 Excel", theme.DocumentCreateIcon(), func() { a.importExcel() })
 	passwordBtn := widget.NewButtonWithIcon("改密码", theme.LoginIcon(), func() { a.showChangePasswordDialog() })
 	prevBtn := widget.NewButtonWithIcon("", theme.NavigateBackIcon(), func() { a.prevPage() })
 	nextBtn := widget.NewButtonWithIcon("", theme.NavigateNextIcon(), func() { a.nextPage() })
 
-	a.pageLabel = widget.NewLabel("第 1 页")
-	a.statusLabel = widget.NewLabel("就绪")
+	a.pageLabel = widget.NewLabel("第 1 / 1 页")
+	a.recordCountLabel = widget.NewLabel("共 0 条记录")
+	a.dbPathLabel = widget.NewLabel("")
+	a.dbPathLabel.Importance = widget.LowImportance
 	a.summaryLabel = widget.NewLabel("汇总加载中…")
 
-	filterBar := container.NewVBox(
-		widget.NewForm(
-			widget.NewFormItem("关键词", a.keywordEntry),
-			widget.NewFormItem("起始日期", a.dateFromEntry),
-			widget.NewFormItem("截止日期", a.dateToEntry),
-			widget.NewFormItem("最低金额", a.amountMinEntry),
-			widget.NewFormItem("最高金额", a.amountMaxEntry),
-			widget.NewFormItem("收支", a.directionSelect),
-			widget.NewFormItem("类型", a.typeSelect),
+	keywordField := formField("关键词", container.NewBorder(
+		nil, nil,
+		container.NewCenter(widget.NewIcon(theme.SearchIcon())),
+		nil,
+		a.keywordEntry,
+	))
+
+	filterCard := newCard(container.NewVBox(
+		keywordField,
+		fieldRow(4,
+			formField("起始日期", a.dateFromEntry),
+			formField("截止日期", a.dateToEntry),
+			formField("最低金额", a.amountMinEntry),
+			formField("最高金额", a.amountMaxEntry),
 		),
-		container.NewHBox(searchBtn, clearBtn, importBtn, passwordBtn, prevBtn, a.pageLabel, nextBtn),
-	)
+		fieldRow(2,
+			formField("收支", a.directionSelect),
+			formField("类型", a.typeSelect),
+		),
+		container.NewBorder(
+			nil, nil,
+			container.NewHBox(searchBtn, clearBtn, importBtn, passwordBtn),
+			container.NewHBox(prevBtn, a.pageLabel, nextBtn),
+			nil,
+		),
+	))
 
 	a.table = widget.NewTable(
 		func() (int, int) { return len(a.tableData), len(tableHeaders) },
@@ -107,18 +126,7 @@ func (a *App) Build() fyne.CanvasObject {
 				label.SetText("")
 				return
 			}
-			tx := a.tableData[id.Row]
-			cols := []string{
-				tx.TransTime.Format("2006-01-02 15:04"),
-				tx.TransType,
-				tx.Counterparty,
-				tx.Direction,
-				database.FormatMoney(tx.Amount),
-				tx.PaymentMethod,
-				tx.Status,
-				tx.TransNo,
-			}
-			label.SetText(cols[id.Col])
+			applyTransactionCell(label, id.Col, a.tableData[id.Row])
 		},
 	)
 	applyTableColumnWidths(a.table)
@@ -134,11 +142,23 @@ func (a *App) Build() fyne.CanvasObject {
 	)
 	applyTableColumnWidths(headerTable)
 
-	listTab := container.NewBorder(
-		filterBar,
-		a.statusLabel,
+	tableCard := newCard(container.NewBorder(
+		headerTable, nil, nil, nil,
+		container.NewScroll(a.table),
+	))
+
+	footerBar := container.NewBorder(
 		nil, nil,
-		container.NewBorder(headerTable, nil, nil, nil, container.NewScroll(a.table)),
+		a.recordCountLabel,
+		a.dbPathLabel,
+		nil,
+	)
+
+	listTab := container.NewBorder(
+		container.NewPadded(filterCard),
+		container.NewPadded(footerBar),
+		nil, nil,
+		tableCard,
 	)
 
 	a.typeTable = widget.NewTable(
@@ -219,7 +239,11 @@ func (a *App) Build() fyne.CanvasObject {
 	summarySplit := container.NewVSplit(typeSection, monthSection)
 	summarySplit.SetOffset(0.5)
 
-	summaryTab := container.NewBorder(a.summaryLabel, nil, nil, nil, summarySplit)
+	summaryTab := container.NewBorder(
+		newCard(a.summaryLabel),
+		nil, nil, nil,
+		summarySplit,
+	)
 
 	tabs := container.NewAppTabs(
 		container.NewTabItem("流水", listTab),
@@ -231,7 +255,7 @@ func (a *App) Build() fyne.CanvasObject {
 	a.refreshList()
 	a.refreshSummary()
 
-	return tabs
+	return appBackground(tabs)
 }
 
 func (a *App) currentFilter() models.SearchFilter {
@@ -244,15 +268,13 @@ func (a *App) currentFilter() models.SearchFilter {
 	if t := a.typeSelect.Selected; t != "" && t != "全部类型" {
 		filter.TransType = t
 	}
-	if from := stringsTrim(a.dateFromEntry.Text); from != "" {
-		if t, err := time.ParseInLocation("2006-01-02", from, time.Local); err == nil {
-			filter.DateFrom = &t
-		}
+	if from := a.dateFromEntry.Date; from != nil {
+		t := from.Truncate(24 * time.Hour)
+		filter.DateFrom = &t
 	}
-	if to := stringsTrim(a.dateToEntry.Text); to != "" {
-		if t, err := time.ParseInLocation("2006-01-02", to, time.Local); err == nil {
-			filter.DateTo = &t
-		}
+	if to := a.dateToEntry.Date; to != nil {
+		t := to.Truncate(24 * time.Hour)
+		filter.DateTo = &t
 	}
 	filter.AmountMin = parseAmountFilter(a.amountMinEntry.Text)
 	filter.AmountMax = parseAmountFilter(a.amountMaxEntry.Text)
@@ -285,8 +307,13 @@ func (a *App) refreshList() {
 	page := a.pageOffset/a.pageSize + 1
 	totalPages := max(1, (total+a.pageSize-1)/a.pageSize)
 	a.pageLabel.SetText(fmt.Sprintf("第 %d / %d 页", page, totalPages))
-	a.statusLabel.SetText(fmt.Sprintf("共 %d 条记录，当前显示 %d-%d 条 | 数据库: %s",
-		total, a.pageOffset+1, min(a.pageOffset+len(list), total), a.db.Path()))
+	end := min(a.pageOffset+len(list), total)
+	if total == 0 {
+		a.recordCountLabel.SetText("共 0 条记录")
+	} else {
+		a.recordCountLabel.SetText(fmt.Sprintf("共 %d 条记录，当前显示 %d-%d 条", total, a.pageOffset+1, end))
+	}
+	a.dbPathLabel.SetText("数据库: " + a.db.Path())
 }
 
 func (a *App) refreshSummary() {
@@ -337,8 +364,8 @@ func (a *App) refreshTypeOptions() {
 
 func (a *App) clearFilters() {
 	a.keywordEntry.SetText("")
-	a.dateFromEntry.SetText("")
-	a.dateToEntry.SetText("")
+	a.dateFromEntry.SetDate(nil)
+	a.dateToEntry.SetDate(nil)
 	a.amountMinEntry.SetText("")
 	a.amountMaxEntry.SetText("")
 	a.directionSelect.SetSelected("全部")
